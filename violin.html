@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mary Had a Little Lamb - Perfect Sync</title>
+    <!-- Tailwind CSS for modern, clean UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- VexFlow for rendering HTML5 Sheet Music and Tabs -->
+    <script src="https://cdn.jsdelivr.net/npm/vexflow@3.0.9/releases/vexflow-min.js"></script>
+    <style>
+        /* Custom scrollbar for horizontal sheet music overflow */
+        .scroll-container {
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 15px;
+            cursor: grab;
+            -webkit-overflow-scrolling: touch;
+        }
+        .scroll-container:active {
+            cursor: grabbing;
+        }
+        .scroll-container::-webkit-scrollbar {
+            height: 10px;
+        }
+        .scroll-container::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+            border-radius: 5px;
+        }
+        .scroll-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 5px;
+        }
+        
+        /* Ensure enough space for 3 parallel staves per system */
+        .stave-wrapper {
+            min-width: 1180px; 
+            height: 420px; 
+        }
+
+        /* --- BULLETPROOF HIGHLIGHT CSS --- */
+        /* Targets note heads, stems, and ledger lines */
+        .highlight-note path, .highlight-note rect {
+            fill: #ef4444 !important; /* Tailwind rose-500 */
+            stroke: #ef4444 !important;
+            transition: fill 0.05s ease, stroke 0.05s ease;
+        }
+        /* Targets the fret numbers in both Guitar and Violin tablatures */
+        .highlight-note text, .highlight-note tspan {
+            fill: #ef4444 !important;
+            stroke: none !important; /* Ensures text remains legible */
+            font-weight: 900 !important;
+            transition: fill 0.05s ease;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-extrabold text-slate-900 mb-3 tracking-tight">Mary Had a Little Lamb</h1>
+            <p class="text-lg text-slate-600">Standard Notation, Violin Tab (4 Strings), and Guitar Tab (6 Strings).</p>
+        </header>
+
+        <!-- Container for dynamically injected key cards -->
+        <div id="app" class="space-y-8"></div>
+    </div>
+
+    <script>
+        // --- 1. MELODY & MUSICAL DATA DEFINITION ---
+
+        const melodyRhythm = [
+            { d: 3, dur: 'q' }, { d: 2, dur: 'q' }, { d: 1, dur: 'q' }, { d: 2, dur: 'q' }, // Measure 1
+            { d: 3, dur: 'q' }, { d: 3, dur: 'q' }, { d: 3, dur: 'h' },                     // Measure 2
+            { d: 2, dur: 'q' }, { d: 2, dur: 'q' }, { d: 2, dur: 'h' },                     // Measure 3
+            { d: 3, dur: 'q' }, { d: 5, dur: 'q' }, { d: 5, dur: 'h' },                     // Measure 4
+            { d: 3, dur: 'q' }, { d: 2, dur: 'q' }, { d: 1, dur: 'q' }, { d: 2, dur: 'q' }, // Measure 5
+            { d: 3, dur: 'q' }, { d: 3, dur: 'q' }, { d: 3, dur: 'q' }, { d: 3, dur: 'q' }, // Measure 6
+            { d: 2, dur: 'q' }, { d: 2, dur: 'q' }, { d: 3, dur: 'q' }, { d: 2, dur: 'q' }, // Measure 7
+            { d: 1, dur: 'w' }                                                              // Measure 8
+        ];
+
+        const measuresConfig = [
+            [0, 1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12], 
+            [13, 14, 15, 16], [17, 18, 19, 20], [21, 22, 23, 24], [25]
+        ];
+
+        // Scale and Tab definitions
+        const keysConfig = [
+            { 
+                id: "c-major", name: "C Major", subtitle: "No Sharps or Flats", sig: "C", 
+                scaleVis: ["c/4", "d/4", "e/4", "f/4", "g/4", "a/4", "b/4"], 
+                scaleMidi: [60, 62, 64, 65, 67, 69, 71],
+                scaleGuitarTab: [{string: 5, fret: 3}, {string: 4, fret: 0}, {string: 4, fret: 2}, {string: 4, fret: 3}, {string: 3, fret: 0}, {string: 3, fret: 2}, {string: 2, fret: 0}],
+                scaleViolinTab: [{string: 4, fret: 5}, {string: 3, fret: 0}, {string: 3, fret: 2}, {string: 3, fret: 3}, {string: 3, fret: 5}, {string: 2, fret: 0}, {string: 2, fret: 2}]
+            },
+            { 
+                id: "g-major", name: "G Major", subtitle: "1 Sharp (F#)", sig: "G", 
+                scaleVis: ["g/4", "a/4", "b/4", "c/5", "d/5", "e/5", "f/5"], 
+                scaleMidi: [67, 69, 71, 72, 74, 76, 78],
+                scaleGuitarTab: [{string: 3, fret: 0}, {string: 3, fret: 2}, {string: 2, fret: 0}, {string: 2, fret: 1}, {string: 2, fret: 3}, {string: 1, fret: 0}, {string: 1, fret: 2}],
+                scaleViolinTab: [{string: 3, fret: 5}, {string: 2, fret: 0}, {string: 2, fret: 2}, {string: 2, fret: 3}, {string: 2, fret: 5}, {string: 1, fret: 0}, {string: 1, fret: 2}]
+            },
+            { 
+                id: "d-major", name: "D Major", subtitle: "2 Sharps (F#, C#)", sig: "D", 
+                scaleVis: ["d/4", "e/4", "f/4", "g/4", "a/4", "b/4", "c/5"], 
+                scaleMidi: [62, 64, 66, 67, 69, 71, 73],
+                scaleGuitarTab: [{string: 4, fret: 0}, {string: 4, fret: 2}, {string: 4, fret: 4}, {string: 3, fret: 0}, {string: 3, fret: 2}, {string: 2, fret: 0}, {string: 2, fret: 2}],
+                scaleViolinTab: [{string: 3, fret: 0}, {string: 3, fret: 2}, {string: 3, fret: 4}, {string: 3, fret: 5}, {string: 2, fret: 0}, {string: 2, fret: 2}, {string: 2, fret: 4}]
+            },
+            { 
+                id: "f-major", name: "F Major", subtitle: "1 Flat (Bb)", sig: "F", 
+                scaleVis: ["f/4", "g/4", "a/4", "b/4", "c/5", "d/5", "e/5"], 
+                scaleMidi: [65, 67, 69, 70, 72, 74, 76],
+                scaleGuitarTab: [{string: 4, fret: 3}, {string: 3, fret: 0}, {string: 3, fret: 2}, {string: 3, fret: 3}, {string: 2, fret: 1}, {string: 2, fret: 3}, {string: 1, fret: 0}],
+                scaleViolinTab: [{string: 3, fret: 3}, {string: 3, fret: 5}, {string: 2, fret: 0}, {string: 2, fret: 1}, {string: 2, fret: 3}, {string: 2, fret: 5}, {string: 1, fret: 0}]
+            },
+            { 
+                id: "eb-major", name: "Eb Major", subtitle: "3 Flats (Bb, Eb, Ab)", sig: "Eb", 
+                scaleVis: ["e/4", "f/4", "g/4", "a/4", "b/4", "c/5", "d/5"], 
+                scaleMidi: [63, 65, 67, 68, 70, 72, 74],
+                scaleGuitarTab: [{string: 4, fret: 1}, {string: 4, fret: 3}, {string: 3, fret: 0}, {string: 3, fret: 1}, {string: 3, fret: 3}, {string: 2, fret: 1}, {string: 2, fret: 3}],
+                scaleViolinTab: [{string: 3, fret: 1}, {string: 3, fret: 3}, {string: 3, fret: 5}, {string: 3, fret: 6}, {string: 2, fret: 1}, {string: 2, fret: 3}, {string: 2, fret: 5}]
+            },
+            { 
+                id: "a-minor", name: "A Minor", subtitle: "Relative Minor (Sad variation)", sig: "Am", 
+                scaleVis: ["a/4", "b/4", "c/5", "d/5", "e/5", "f/5", "g/5"], 
+                scaleMidi: [69, 71, 72, 74, 76, 77, 79],
+                scaleGuitarTab: [{string: 3, fret: 2}, {string: 2, fret: 0}, {string: 2, fret: 1}, {string: 2, fret: 3}, {string: 1, fret: 0}, {string: 1, fret: 1}, {string: 1, fret: 3}],
+                scaleViolinTab: [{string: 2, fret: 0}, {string: 2, fret: 2}, {string: 2, fret: 3}, {string: 2, fret: 5}, {string: 1, fret: 0}, {string: 1, fret: 1}, {string: 1, fret: 3}]
+            }
+        ];
+
+        // --- 2. AUDIO & ANIMATION ENGINE ---
+        let audioCtx = null;
+        let activeOscillators = [];
+        let activeKeyId = null;
+        let animationFrameId = null;
+        let playbackSchedule = [];
+        let currentlyHighlightedIdx = -1;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function stopAudio() {
+            activeOscillators.forEach(osc => {
+                try { osc.stop(); osc.disconnect(); } catch (e) {}
+            });
+            activeOscillators = [];
+            cancelAnimationFrame(animationFrameId);
+            clearHighlight();
+            resetAllPlayButtons();
+        }
+
+        function resetAllPlayButtons() {
+            document.querySelectorAll('.play-btn').forEach(btn => {
+                btn.innerHTML = `<svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" fill-rule="evenodd"></path></svg> Play`;
+                btn.classList.remove('bg-rose-500', 'hover:bg-rose-600');
+                btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            });
+        }
+
+        function playKey(keyConfig, btnElement) {
+            initAudio();
+            stopAudio(); 
+
+            btnElement.innerHTML = `<svg class="w-5 h-5 mr-2 animate-pulse" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 002 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v4a1 1 0 002 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg> Playing...`;
+            btnElement.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            btnElement.classList.add('bg-rose-500', 'hover:bg-rose-600');
+
+            activeKeyId = keyConfig.id;
+            playbackSchedule = [];
+
+            const bpm = 120;
+            const qTime = 60 / bpm; 
+            let startTime = audioCtx.currentTime + 0.1; 
+
+            melodyRhythm.forEach((noteData, index) => {
+                const midi = keyConfig.scaleMidi[noteData.d - 1];
+                const freq = 440 * Math.pow(2, (midi - 69) / 12);
+                
+                let durationSeconds = qTime;
+                if (noteData.dur === 'h') durationSeconds = qTime * 2;
+                if (noteData.dur === 'w') durationSeconds = qTime * 4;
+
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.value = freq;
+
+                // Envelopes to prevent harsh clipping/clicking
+                gainNode.gain.setValueAtTime(0, startTime);
+                gainNode.gain.linearRampToValueAtTime(0.4, startTime + 0.05);
+                gainNode.gain.setValueAtTime(0.4, startTime + (durationSeconds * 0.9) - 0.05);
+                gainNode.gain.linearRampToValueAtTime(0, startTime + (durationSeconds * 0.9));
+
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                osc.start(startTime);
+                osc.stop(startTime + durationSeconds);
+                
+                activeOscillators.push(osc);
+
+                playbackSchedule.push({
+                    idx: index,
+                    start: startTime,
+                    end: startTime + durationSeconds
+                });
+
+                startTime += durationSeconds;
+            });
+
+            animationFrameId = requestAnimationFrame(syncHighlightWithAudio);
+        }
+
+        // --- 3. VISUAL SYNCHRONIZATION ---
+        
+        function syncHighlightWithAudio() {
+            if (!audioCtx || playbackSchedule.length === 0) return;
+
+            const now = audioCtx.currentTime;
+            const currentNote = playbackSchedule.find(n => now >= n.start && now < n.end);
+
+            if (currentNote) {
+                if (currentlyHighlightedIdx !== currentNote.idx) {
+                    clearHighlight();
+                    setHighlight(activeKeyId, currentNote.idx);
+                    currentlyHighlightedIdx = currentNote.idx;
+                }
+            } else {
+                const lastNote = playbackSchedule[playbackSchedule.length - 1];
+                if (now > lastNote.end) {
+                    clearHighlight();
+                    resetAllPlayButtons();
+                    return; 
+                } else if (currentlyHighlightedIdx !== -1) {
+                    clearHighlight(); 
+                }
+            }
+            animationFrameId = requestAnimationFrame(syncHighlightWithAudio);
+        }
+
+        // Directly targets the DOM IDs we manually injected during the render phase
+        function setHighlight(keyId, noteIdx) {
+            const std = document.getElementById(`std-${keyId}-${noteIdx}`);
+            const vio = document.getElementById(`vio-${keyId}-${noteIdx}`);
+            const gui = document.getElementById(`gui-${keyId}-${noteIdx}`);
+            
+            if (std) std.classList.add('highlight-note');
+            if (vio) vio.classList.add('highlight-note');
+            if (gui) gui.classList.add('highlight-note');
+        }
+
+        function clearHighlight() {
+            if (activeKeyId && currentlyHighlightedIdx !== -1) {
+                const std = document.getElementById(`std-${activeKeyId}-${currentlyHighlightedIdx}`);
+                const vio = document.getElementById(`vio-${activeKeyId}-${currentlyHighlightedIdx}`);
+                const gui = document.getElementById(`gui-${activeKeyId}-${currentlyHighlightedIdx}`);
+                
+                if (std) std.classList.remove('highlight-note');
+                if (vio) vio.classList.remove('highlight-note');
+                if (gui) gui.classList.remove('highlight-note');
+            }
+            currentlyHighlightedIdx = -1;
+        }
+
+        // --- 4. SHEET MUSIC RENDERER & DOM INJECTION ---
+        const VF = Vex.Flow;
+
+        function drawSheetMusicAndTabs(containerId, keyConfig) {
+            const div = document.getElementById(containerId);
+            const renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
+            
+            renderer.resize(1180, 420); 
+            const context = renderer.getContext();
+
+            const stdStaveY = 25;
+            const vioStaveY = 150;
+            const guiStaveY = 275;
+
+            context.setFont("Arial", 12, "bold").setFillStyle("#64748b");
+            context.fillText("Standard Notation", 15, stdStaveY - 5);
+            context.fillText("Violin Tablature", 15, vioStaveY - 5);
+            context.fillText("Guitar Tablature", 15, guiStaveY - 5);
+
+            let currentX = 10;
+            const standardMeasureWidth = 135;
+
+            measuresConfig.forEach((measureIndices, mIdx) => {
+                const width = mIdx === 0 ? standardMeasureWidth + 80 : standardMeasureWidth;
+                
+                const stave = new VF.Stave(currentX, stdStaveY, width);
+                const violinTabStave = new VF.TabStave(currentX, vioStaveY, width, { num_lines: 4 });
+                const guitarTabStave = new VF.TabStave(currentX, guiStaveY, width, { num_lines: 6 });
+                
+                if (mIdx === 0) {
+                    stave.addClef("treble").addKeySignature(keyConfig.sig);
+                    violinTabStave.addClef("tab");
+                    guitarTabStave.addClef("tab");
+                }
+                
+                if (mIdx === measuresConfig.length - 1) {
+                    stave.setEndBarType(VF.Barline.type.END);
+                    violinTabStave.setEndBarType(VF.Barline.type.END);
+                    guitarTabStave.setEndBarType(VF.Barline.type.END);
+                }
+
+                stave.setContext(context).draw();
+                violinTabStave.setContext(context).draw();
+                guitarTabStave.setContext(context).draw();
+
+                const stdNotes = [];
+                const vioNotes = [];
+                const guiNotes = [];
+
+                measureIndices.forEach(idx => {
+                    const noteData = melodyRhythm[idx];
+                    
+                    const visKey = keyConfig.scaleVis[noteData.d - 1];
+                    stdNotes.push(new VF.StaveNote({ keys: [visKey], duration: noteData.dur }));
+                    
+                    const vioData = keyConfig.scaleViolinTab[noteData.d - 1];
+                    vioNotes.push(new VF.TabNote({
+                        positions: [{ str: vioData.string, fret: vioData.fret.toString() }],
+                        duration: noteData.dur
+                    }));
+
+                    const guiData = keyConfig.scaleGuitarTab[noteData.d - 1];
+                    guiNotes.push(new VF.TabNote({
+                        positions: [{ str: guiData.string, fret: guiData.fret.toString() }],
+                        duration: noteData.dur
+                    }));
+                });
+
+                const stdVoice = new VF.Voice({ num_beats: 4, beat_value: 4 }).addTickables(stdNotes);
+                const vioVoice = new VF.Voice({ num_beats: 4, beat_value: 4 }).addTickables(vioNotes);
+                const guiVoice = new VF.Voice({ num_beats: 4, beat_value: 4 }).addTickables(guiNotes);
+                
+                new VF.Formatter()
+                    .joinVoices([stdVoice, vioVoice, guiVoice])
+                    .formatToStave([stdVoice, vioVoice, guiVoice], stave);
+
+                // **CRITICAL FIX: Manual DOM Tracker Injection**
+                // We count how many SVG groups exist BEFORE drawing this specific measure
+                const prevStdCount = div.querySelectorAll('.vf-stavenote').length;
+                const prevTabCount = div.querySelectorAll('.vf-tabnote').length;
+
+                // 1. Draw Standard Voice
+                stdVoice.draw(context, stave);
+                // 2. Draw Violin Voice
+                vioVoice.draw(context, violinTabStave);
+                // After Violin Voice, we need the new tab count so we know where Guitar notes start
+                const afterVioTabCount = div.querySelectorAll('.vf-tabnote').length;
+                // 3. Draw Guitar Voice
+                guiVoice.draw(context, guitarTabStave);
+
+                // Fetch the updated, fully rendered DOM lists
+                const allRenderedStd = div.querySelectorAll('.vf-stavenote');
+                const allRenderedTabs = div.querySelectorAll('.vf-tabnote');
+
+                // Explicitly inject our unique tracking IDs into the live SVG DOM nodes
+                measureIndices.forEach((globalIdx, localIdx) => {
+                    const stdElement = allRenderedStd[prevStdCount + localIdx];
+                    const vioElement = allRenderedTabs[prevTabCount + localIdx];
+                    const guiElement = allRenderedTabs[afterVioTabCount + localIdx];
+
+                    if (stdElement) stdElement.id = `std-${keyConfig.id}-${globalIdx}`;
+                    if (vioElement) vioElement.id = `vio-${keyConfig.id}-${globalIdx}`;
+                    if (guiElement) guiElement.id = `gui-${keyConfig.id}-${globalIdx}`;
+                });
+
+                currentX += stave.width;
+            });
+        }
+
+        // --- 5. APP INITIALIZATION ---
+        function initApp() {
+            const appContainer = document.getElementById('app');
+
+            keysConfig.forEach(keyConfig => {
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden";
+                
+                const header = document.createElement('div');
+                header.className = "p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50";
+                
+                const titleBlock = document.createElement('div');
+                titleBlock.innerHTML = `
+                    <h2 class="text-xl font-bold text-slate-800">${keyConfig.name}</h2>
+                    <p class="text-sm text-slate-500 font-medium">${keyConfig.subtitle}</p>
+                `;
+
+                const playBtn = document.createElement('button');
+                playBtn.className = "play-btn flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2";
+                playBtn.innerHTML = `<svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" fill-rule="evenodd"></path></svg> Play`;
+                playBtn.onclick = () => playKey(keyConfig, playBtn);
+
+                header.appendChild(titleBlock);
+                header.appendChild(playBtn);
+
+                const musicContainer = document.createElement('div');
+                musicContainer.className = "scroll-container p-4";
+                
+                const vexflowDiv = document.createElement('div');
+                vexflowDiv.id = `vf-${keyConfig.id}`;
+                vexflowDiv.className = "stave-wrapper";
+                
+                musicContainer.appendChild(vexflowDiv);
+                card.appendChild(header);
+                card.appendChild(musicContainer);
+                appContainer.appendChild(card);
+
+                drawSheetMusicAndTabs(`vf-${keyConfig.id}`, keyConfig);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', initApp);
+
+    </script>
+</body>
+</html>
